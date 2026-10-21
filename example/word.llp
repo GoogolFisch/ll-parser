@@ -1,0 +1,38 @@
+
+// Definition of words
+RSpace   = [\s\t]*
+//RWord    = \w+
+RWord    = [0-9A-Za-z_]+
+RComment = \/\/[^\n]+
+RAssign  = \=
+RReg     = [^\n]+
+RStar    = \*
+RQMark   = \?
+
+RNewLine = \n
+RMorphe  = \>
+// Note easy definition of
+// all symbols have to be escaped
+// \w Word so [A-Za-z0-9_]
+// \n will be newLine
+// . will be anything
+// + will be match more/any
+
+
+
+
+// Morphing definition
+_       > Start
+Start   > Expr RNewLine? Start*
+Start   > Expr
+
+Expr    > RComment?
+Expr    > RWord RAssign RReg
+Expr    > RWord RMorphe List
+List    > MorWord List*
+List    > MorWord
+
+MorWord > RWord RStart
+MorWord > RWord RQMark
+MorWord > RWord
+
