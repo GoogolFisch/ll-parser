@@ -24,15 +24,17 @@ RMorphe  = \>
 // Morphing definition
 _       > Start
 Start   > Expr RNewLine? Start*
+Start   > RNewLine? Start*
+Start   > RNewLine?
 Start   > Expr
 
-Expr    > RComment?
-Expr    > RWord RAssign RReg
-Expr    > RWord RMorphe List
-List    > MorWord List*
-List    > MorWord
+Expr    > RComment
+Expr    > RWord RSpace? RAssign RSpace? RReg
+Expr    > RWord RSpace? RMorphe RSpace? List
+List    > MorWord RSpace? List*
+List    > MorWord RSpace?
 
-MorWord > RWord RStart
+MorWord > RWord RStar
 MorWord > RWord RQMark
 MorWord > RWord
 

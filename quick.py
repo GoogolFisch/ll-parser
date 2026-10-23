@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import time
 
 def lenWord(sting:str)->int:
     for i,v in enumerate(sting):
@@ -38,7 +39,7 @@ def whatLiteral(sting:str)->tuple(str,str,bool):
 
 
 class Position:
-    __slots__ = ("row","column","index","startIdx","endidx")
+    __slots__ = ("row","column","index","startIdx","endIdx")
     def __init__(self):
         self.row      = 1
         self.column   = 1
@@ -49,20 +50,44 @@ class Position:
     def incr(self):
         self.index += 1
         self.column += 1
+        self.startIdx = self.index
+        self.endIdx   = self.index
 
-    def clone(self) -> Position:
+    def incrLine(self):
+        self.column = 1
+        self.row += 1
+
+    def setRange(self,other:Position):
+        self.endIdx = other.endIdx
+
+    def update(self,other:Position):
+        self.row      = other.row
+        self.column   = other.column
+        self.index    = other.index
+        self.startIdx = other.startIdx
+        self.endIdx   = other.endIdx
+
+    def copy(self) -> Position:
         p = Position()
-        p.row      = self.row
-        p.column   = self.column
-        p.index    = self.index
-        p.startIdx = self.startIdx
-        p.endIdx   = self.endIdx
+        p.update(self)
         return p
 
-REPEAT_MAY = 0
-REPEAT_NO = 1
+    def get(self,data:str):
+        if(len(data) <= self.index):return None
+        return data[self.index]
+
+    def getRange(self,data:str):
+        return data[self.startIdx:self.endIdx]
+
+    def __str__(self):
+        return f"<{self.row}:{self.column} {self.startIdx} {self.index} {self.endIdx}>"
+
+REPEAT   = "? *+"
+REPEAT__ = "?*+"
+REPEAT_MAY  = 0
+REPEAT_NO   = 1
 REPEAT_WITH = 2
-REPEAT_WO = 3
+REPEAT_WO   = 3
 
 class Letter:
     __slots__ = ("allowList","repeat","invert")
@@ -73,6 +98,20 @@ class Letter:
 
     def isIn(self,char):
         return self.invert != (char in self.allowList)
+
+    def canConsume(self,count:int) -> bool:
+        if(self.repeat == REPEAT_MAY  and count == 0):return True
+        if(self.repeat == REPEAT_NO   and count == 0):return True
+        if(self.repeat == REPEAT_WITH               ):return True
+        if(self.repeat == REPEAT_WO                 ):return True
+        return False
+
+    def isSatisfied(self,count:int):
+        if(self.repeat == REPEAT_MAY  and count  < 2):return True
+        if(self.repeat == REPEAT_NO   and count == 1):return True
+        if(self.repeat == REPEAT_WITH               ):return True
+        if(self.repeat == REPEAT_WO   and count  > 0):return True
+        return False
 
     def join(self,other:Letter):
         if(self.invert and other.invert):
@@ -106,11 +145,27 @@ class Letter:
     def __str__(self):
         outStr = " ^"[self.invert]
         outStr += "[" + "".join(self.allowList) + "]"
-        outStr += "? *+"[self.repeat]
+        outStr += REPEAT[self.repeat]
         return outStr
 
+FLAG   = " *?"
+FLAG__ = "*?"
+FLAG_NONE = 0
+FLAG_FLAT = 1
+FLAG_SKIP = 2
+
+class SubWord:
+    __slots__ = ("word","op")
+    def __init__(self,word:str,op:int = 0):
+        self.word = word
+        self.op   = op
+
+    def __str__(self):
+        outStr = f"{self.word}{FLAG[self.op]}"
+        return outStr
 
 class Word:
+    REGISTERED = list()
     __slots__ = ("op","name","expr")
     def __init__(self,line:str):
         i = lenWord(line)
@@ -132,13 +187,13 @@ class Word:
             if(l > 0):line = line[l:];continue
             l = lenWord(line)
             if(l > 0):
-                word = list()
-                word.append(line[:l])
+                word = SubWord(line[:l])
                 line = line[l:]
                 if(len(line) > 0 and line[0] in "*?"):
-                    word.append(line[0])
+                    word.op = FLAG.index(line[0])
                     line = line[1:]
-                self.expr.append(tuple(word))
+                # TODO change from Tuple to Object
+                self.expr.append(word)
                 continue
             print(f"ListError, {ord(line[0])} {line}")
             line = line[1:]
@@ -184,8 +239,8 @@ class Word:
                     letter.invert = invert
 
             if(letter is not None):
-                if(len(line) > 0 and line[0] in "?+*"):
-                    letter.repeat = "? *+".index(line[0])
+                if(len(line) > 0 and line[0] in REPEAT__):
+                    letter.repeat = REPEAT.index(line[0])
                     line = line[1:]
                 self.expr.append(letter)
                 continue
@@ -203,20 +258,74 @@ class Word:
             return outStr
 
 class Node:
-    __slots__ = ("name","position","raw","child")
-    def __init__(self,name,pos):
+    __slots__ = ("name","pos","iter","raw","child")
+    def __init__(self,name:str="_",pos = Position()):
         self.name  = name
         self.pos   = pos
+        self.iter  = pos.copy()
         self.child = list()
         self.raw   = ""
 
+    def _parseRule(self,data:str,rule:Word) -> bool:
+        if(rule.op == ">"):
+            return self._parseWord(data,rule)
+        if(rule.op == "="):
+            return self._parseLetter(data,rule)
+
+    def _parseLetter(self,data:str,rule:Word) -> bool:
+        pos = self.iter
+        for let in rule.expr:
+            counter = 0
+            while(let.canConsume(counter)):
+                dat = pos.get(data)
+                if(dat is None):break
+                if(not let.isIn(dat)):
+                    break
+                counter += 1
+                pos.incr()
+                if(dat == "\n"):pos.incrLine()
+            if(not let.isSatisfied(counter)):
+                return False
+        self.pos.setRange(pos)
+        self.raw = self.pos.getRange(data)
+        return True
+
+    def _parseWord(self,data:str,rule:Word) -> bool:
+        pos = self.iter
+        # TODO change from Tuple to Object
+        for wrd in rule.expr:
+            print(" ",wrd,pos)
+            lower = Node(wrd.word,pos.copy())
+            work = lower.parse(data)
+            print("-",wrd,pos,work)
+            if(not work):return False
+            pos.update(lower.iter)
+            if  (wrd.op == FLAG_SKIP):pass
+            elif(wrd.op == FLAG_NONE):
+                self.child.append(lower)
+            elif(wrd.op == FLAG_FLAT):
+                self.child += lower.child
+        self.pos.setRange(pos)
+        return True
+
+    def parse(self,data:str):
+        for r in Word.REGISTERED:
+            if(r.name == self.name):
+                self.iter.update(self.pos)
+                self.child.clear()
+                if(self._parseRule(data,r)):
+                    return True
+        return False
+
     def cascade(self,indent:int=0):
-        outStr  = ("  " * indent)
-        outStr += f"<{self.name} {self.position} {self.raw} "
+        #outStr  = ("  " * indent)
+        outStr = f"<{self.name} {self.pos} {self.raw} "
         indent += 1
         for x in self.child:
             outStr += "\n" + ("  " * indent) + x.cascade(indent)
         return outStr + ">"
+
+    def __str__(self):return self.cascade()
 
 class Parser:
     __slots__ = ("rules")
@@ -230,6 +339,14 @@ class Parser:
             if(w.expr is None):
                 print(ln)
             self.rules.append(w)
+        Word.REGISTERED = self.rules
+
+    def parse(self,data:str):
+        n = Node()
+        worked = n.parse(data)
+        if(not worked):
+            return None
+        return n
 
 
 def main():
@@ -250,4 +367,4 @@ def main():
 
 if(__name__ == "__main__" and len(sys.argv)  > 1):main()
 if(__name__ == "__main__" and len(sys.argv) == 0):
-    print("get [rule file] and then [test file]")
+    print("get [rule file] [test file]")

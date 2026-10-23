@@ -1,0 +1,9 @@
+
+RA = a
+RB = b
+
+_ > Start
+Start > RA Start*
+Start > RB RA Start*
+Start > RA
+Start > RB
