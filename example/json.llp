@@ -5,6 +5,8 @@ Rfalse     = false
 
 RNeg       = \-
 RSpace     = [\n\s\t\r]*
+RSpaceP    = [\n\s\t\r]+
+RComment   = \/\/[^\n\r]*
 RQuot      = \"
 REsc       = \\
 RNum       = [0-9]+
@@ -21,13 +23,16 @@ RComma     = \,
 
 _ > Element
 
+Space            > SpaceBody?
+SpaceBody        > RComment SpaceBody?
+SpaceBody        > RSpaceP  SpaceBody?
 
-Element          > RSpace. StrHead RSpace.
-Element          > RSpace. NumHead RSpace.
-Element          > RSpace. ObjHead RSpace.
-Element          > RSpace. LstHead RSpace.
-Element          > RSpace. Rnull   RSpace.
-Element          > RSpace. Boolean RSpace.
+Element          > Space. StrHead Space.
+Element          > Space. NumHead Space.
+Element          > Space. ObjHead Space.
+Element          > Space. LstHead Space.
+Element          > Space. Rnull   Space.
+Element          > Space. Boolean Space.
 
 Boolean          > Rtrue
 Boolean          > Rfalse
@@ -37,15 +42,15 @@ StrHead          > RQuot. StrBody@*? RQuot.
 StrBody          > RStrBody StrBody*?
 StrBody          > RStrEsc StrBody*?
 
-NumHead          > RNeg? RSpace. RNum RSpace. NumFrac*?
-NumHead          > RNeg? RSpace. RDot RSpace. RNum
-NumFrac          > RDot  RSpace. RNum?
+NumHead          > RNeg? Space. RNum Space. NumFrac*?
+NumHead          > RNeg? Space. RDot Space. RNum
+NumFrac          > RDot  Space. RNum?
 
-ObjHead          > RObjOpen. RSpace. ObjList*?  RObjClose.
-ObjElement       > RSpace. StrHead RSpace. RObjDel. RSpace. Element RSpace. 
-ObjList          > ObjElement ObjListContinue*? RSpace.
-ObjListContinue  > RComma. RSpace. ObjList*?
+ObjHead          > RObjOpen. Space. ObjList*?  RObjClose.
+ObjElement       > Space. StrHead Space. RObjDel. Space. Element RSpace. 
+ObjList          > ObjElement ObjListContinue*? Space.
+ObjListContinue  > RComma. Space. ObjList*?
 
-LstHead          > RListOpen. RSpace. ListList*? RListClose.
-ListList         > RSpace. Element ListListContinue*? RSpace.
-ListListContinue > RSpace. RComma. ListList*?
+LstHead          > RListOpen. Space. ListList*? RListClose.
+ListList         > Space. Element ListListContinue*? Space.
+ListListContinue > Space. RComma. ListList*?
