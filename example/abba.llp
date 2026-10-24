@@ -1,9 +1,8 @@
 
-RA = a
-RB = b
+ROpen = \(
+RClose = \)
+RData  = [A-Za-z]+
 
 _ > Start
-Start > RA Start*
-Start > RB RA Start*
-Start > RA
-Start > RB
+Start > ROpen. Start RClose. Start*?
+Start > RData Start*?

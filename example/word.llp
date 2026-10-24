@@ -6,8 +6,11 @@ RWord    = [0-9A-Za-z_]+
 RComment = \/\/[^\n]+
 RAssign  = \=
 RReg     = [^\n]+
-RStar    = \*
-RQMark   = \?
+
+RUnFold  = \*
+ROption  = \?
+RHide    = \.
+RRaw     = \@
 
 RNewLine = \n
 RMorphe  = \>
@@ -23,18 +26,19 @@ RMorphe  = \>
 
 // Morphing definition
 _       > Start
-Start   > Expr RNewLine? Start*
-Start   > RNewLine? Start*
-Start   > RNewLine?
+Start   > Expr RNewLine. Start*
+Start   > RNewLine. Start*?
 Start   > Expr
 
 Expr    > RComment
-Expr    > RWord RSpace? RAssign RSpace? RReg
-Expr    > RWord RSpace? RMorphe RSpace? List
-List    > MorWord RSpace? List*
-List    > MorWord RSpace?
+Expr    > RWord RSpace. RAssign RSpace. RReg
+Expr    > RWord RSpace. RMorphe RSpace. List
+List    > MorWord RSpace. List*?
+List    >
 
-MorWord > RWord RStar
-MorWord > RWord RQMark
-MorWord > RWord
+MorWord > RWord MorList?
+MorList > RUnFold MorList*?
+MorList > RRaw    MorList*?
+MorList > RHide   MorList*?
+MorList > ROption MorList*?
 

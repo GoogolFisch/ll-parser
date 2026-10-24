@@ -1,0 +1,51 @@
+
+Rnull      = null
+Rtrue      = true
+Rfalse     = false
+
+RNeg       = \-
+RSpace     = [\n\s\t\r]*
+RQuot      = \"
+REsc       = \\
+RNum       = [0-9]+
+RStrBody   = [^\\\"]+
+RStrEsc    = \\.
+RDot       = \.
+RListOpen  = \[
+RListClose = \]
+RObjOpen   = \{
+RObjDel    = \:
+RObjClose  = \}
+RComma     = \,
+
+
+_ > Element
+
+
+Element          > RSpace. StrHead RSpace.
+Element          > RSpace. NumHead RSpace.
+Element          > RSpace. ObjHead RSpace.
+Element          > RSpace. LstHead RSpace.
+Element          > RSpace. Rnull   RSpace.
+Element          > RSpace. Boolean RSpace.
+
+Boolean          > Rtrue
+Boolean          > Rfalse
+
+
+StrHead          > RQuot. StrBody@*? RQuot.
+StrBody          > RStrBody StrBody*?
+StrBody          > RStrEsc StrBody*?
+
+NumHead          > RNeg? RSpace. RNum RSpace. NumFrac*?
+NumHead          > RNeg? RSpace. RDot RSpace. RNum
+NumFrac          > RDot  RSpace. RNum?
+
+ObjHead          > RObjOpen. RSpace. ObjList*?  RObjClose.
+ObjElement       > RSpace. StrHead RSpace. RObjDel. RSpace. Element RSpace. 
+ObjList          > ObjElement ObjListContinue*? RSpace.
+ObjListContinue  > RComma. RSpace. ObjList*?
+
+LstHead          > RListOpen. RSpace. ListList*? RListClose.
+ListList         > RSpace. Element ListListContinue*? RSpace.
+ListListContinue > RSpace. RComma. ListList*?
