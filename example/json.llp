@@ -1,7 +1,11 @@
 
 Rnull      = null
-Rtrue      = true
-Rfalse     = false
+Rboolean   = true
+Rboolean   = false
+RExp       = \-?[0-9]+
+RExp       = \+?[0-9]+
+RE         = E
+RE         = e
 
 RNeg       = \-
 RSpace     = [\n\s\t\r]*
@@ -27,24 +31,21 @@ Space            > SpaceBody?
 SpaceBody        > RComment SpaceBody?
 SpaceBody        > RSpaceP  SpaceBody?
 
-Element          > Space. StrHead Space.
-Element          > Space. NumHead Space.
-Element          > Space. ObjHead Space.
-Element          > Space. LstHead Space.
-Element          > Space. Rnull   Space.
-Element          > Space. Boolean Space.
-
-Boolean          > Rtrue
-Boolean          > Rfalse
-
+Element          > Space. StrHead  Space.
+Element          > Space. NumHead  Space.
+Element          > Space. ObjHead  Space.
+Element          > Space. LstHead  Space.
+Element          > Space. Rnull    Space.
+Element          > Space. Rboolean Space.
 
 StrHead          > RQuot. StrBody@*? RQuot.
 StrBody          > RStrBody StrBody*?
 StrBody          > RStrEsc StrBody*?
 
-NumHead          > RNeg? Space. RNum Space. NumFrac*?
-NumHead          > RNeg? Space. RDot Space. RNum
+NumHead          > RNeg? Space. RNum Space. NumFrac*? NumExp*?
+NumHead          > RNeg? Space. RDot Space. RNum      NumExp*?
 NumFrac          > RDot  Space. RNum?
+NumExp           > RE.   RExp
 
 ObjHead          > RObjOpen. Space. ObjList*?  RObjClose.
 ObjElement       > Space. StrHead Space. RObjDel. Space. Element RSpace. 

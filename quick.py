@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-import time
 import llParser
 
 llParser.DEBUG_FLAG = "-D" in sys.argv
@@ -24,5 +23,4 @@ def main():
 
 
 if(__name__ == "__main__" and len(sys.argv)  > 1):main()
-if(__name__ == "__main__" and len(sys.argv) == 0):
-    print("get [rule file] [test file]")
+elif(__name__ == "__main__"):print("get [rule file]")

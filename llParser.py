@@ -154,13 +154,14 @@ class Letter:
         outStr += REPEAT[self.repeat]
         return outStr
 
-FLAG   = " *?.@"
-FLAG__ = "*?.@"
+FLAG   = " *?.@#"
+FLAG__ = "*?.@#"
 FLAG_NONE   = 0
 FLAG_UNFOLD = 1
 FLAG_OPTION = 2
 FLAG_HIDE   = 3
 FLAG_RAW    = 4
+FLAG_COPY   = 5
 
 class SubWord:
     __slots__ = ("word","op")
@@ -173,8 +174,7 @@ class SubWord:
         return outStr
 
 class Word:
-    REGISTERED = dict()
-    __slots__ = ("op","name","expr")
+    __slots__ = ("op","name","expr","store")
     def __init__(self,line:str):
         i = lenWord(line)
         self.name = line[:i]
@@ -217,7 +217,7 @@ class Word:
             if(w is not None):
                 letter = Letter(lit,inv)
                 line = line[len(w):]
-            if(len(line) > 0 and line[0] == "["): # ]
+            elif(len(line) > 0 and line[0] == "["): # ]
                 invert = line[1] == '^'
                 line = line[invert + 1:]
                 letter = Letter()
@@ -266,13 +266,14 @@ class Word:
             return outStr
 
 class Node:
-    __slots__ = ("name","pos","iter","raw","child")
-    def __init__(self,name:str="_",pos = Position()):
-        self.name  = name
-        self.pos   = pos
-        self.iter  = pos.copy()
-        self.child = list()
-        self.raw   = ""
+    __slots__ = ("parent","name","pos","iter","raw","child")
+    def __init__(self,parent:Parser,name:str="_",pos = Position()):
+        self.parent = parent
+        self.name   = name
+        self.pos    = pos
+        self.iter   = pos.copy()
+        self.child  = list()
+        self.raw    = ""
 
     def _parseRule(self,data:str,rule:Word) -> bool:
         if(rule.op == ">"):
@@ -303,7 +304,7 @@ class Node:
         # TODO change from Tuple to Object
         for wrd in rule.expr:
             if(DEBUG_FLAG):print(f" {wrd} {pos}")
-            lower = Node(wrd.word,pos.copy())
+            lower = Node(self.parent,wrd.word,pos.copy())
             work = lower.parse(data)
             if(DEBUG_FLAG):print(f"-{wrd} {pos} {work}")
             if(not work):
@@ -324,7 +325,7 @@ class Node:
         return True
 
     def parse(self,data:str):
-        for r in Word.REGISTERED.get(self.name,list()):
+        for r in self.parent.registered.get(self.name,list()):
             self.iter.update(self.pos)
             self.child.clear()
             if(self._parseRule(data,r)):
@@ -339,13 +340,22 @@ class Node:
             outStr += "\n" + ("  " * indent) + x.cascade(indent)
         return outStr + ">"
 
+    def __iter__(self):
+        return self.child.__iter__()
+
+    def __getitem__(self,idx):
+        return self.child[idx]
+
+    def __len__(self):return len(self.child)
+
     def __str__(self):return self.cascade()
 
 class Parser:
-    __slots__ = ("rules")
+    __slots__ = ("rules","registered")
     def __init__(self,ruleBook:str):
         lrule = ruleBook.split("\n")
         self.rules = list()
+        self.registered = dict()
         for ln in lrule:
             if(ln.startswith("//")):continue
             if(len(ln) < 2):continue
@@ -354,15 +364,15 @@ class Parser:
                 print(ln)
             self.rules.append(w)
         for x in self.rules:
-            r = Word.REGISTERED.get(x.name,None)
+            r = self.registered.get(x.name,None)
             if(r is None):
                 r = list()
-                Word.REGISTERED[x.name] = r
+                self.registered[x.name] = r
             r.append(x)
 
 
     def parse(self,data:str):
-        n = Node()
+        n = Node(self)
         worked = n.parse(data)
         if(not worked):
             return None
