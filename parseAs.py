@@ -14,7 +14,7 @@ parseParamFlags(sys.argv,"-gcc","genC")
 parseParamFlags(sys.argv,"-py" ,"genPy")
 
 def main():
-    ruleFile = "./example/word.llp"
+    ruleFile = sys.argv[1]
     with open(ruleFile,"r")as fptr:
         data = fptr.read()
     p = llParser.Parser(data)

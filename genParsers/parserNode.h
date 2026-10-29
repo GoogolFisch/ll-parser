@@ -37,6 +37,13 @@ typedef struct ParserNodeLocation {
 } ParserNodeLocation;
 
 // ======
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
+#ifndef NULL_1
+#define NULL ((void*)-1LL)
+#endif
+// ======
 
 
 ParserNodeLocation parser_location_new(void);
@@ -123,7 +130,9 @@ ParserNode *parser_node_fromRange(uint8_t *data,ParserNodeLocation *loc,int64_t 
 }
 void parser_node_free(ParserNode *node){
 	if(node == NULL)return;
+	if(node->references > 0)return;
 	for(int32_t idx = 0;idx < node->length;idx++){
+		node->references--;
 		parser_node_free(node->children[idx]);
 	}
 	free(node);
@@ -137,6 +146,7 @@ void parser_node_appendChild(ParserNode **node,ParserNode *child){
 		*node = realloc(capNode,sz);
 		capNode = *node;
 	}
+	child->references++;
 	capNode->children[capNode->length] = child;
 	capNode->length++;
 }
@@ -145,6 +155,8 @@ void parser_node_appendChildrenOf(ParserNode **node,ParserNode *child){
 		parser_node_appendChild(node,child->children[idx]);
 		child->children[idx] = NULL;
 	}
+	parser_node_free(child);
+	parser_node_free(child);
 }
 
 

@@ -156,12 +156,12 @@ class Letter:
 
 FLAG   = " *?.@#"
 FLAG__ = "*?.@#"
-FLAG_NONE   = 0
-FLAG_UNFOLD = 1
-FLAG_OPTION = 2
-FLAG_HIDE   = 3
-FLAG_RAW    = 4
-FLAG_COPY   = 5
+FLAG_NONE      = 0
+FLAG_UNFOLD    = 1
+FLAG_OPTION    = 2
+FLAG_HIDE      = 3
+FLAG_RAW       = 4
+FLAG_COPY      = 5
 
 class SubWord:
     __slots__ = ("word","op")
@@ -200,7 +200,6 @@ class Word:
                 while(len(line) > 0 and line[0] in FLAG__):
                     word.op.append(FLAG.index(line[0]))
                     line = line[1:]
-                # TODO change from Tuple to Object
                 self.expr.append(word)
                 continue
             print(f"ListError, {ord(line[0])} {line}")
@@ -275,7 +274,7 @@ class Node:
         self.child  = list()
         self.raw    = ""
 
-    def _parseRule(self,data:str,rule:Word) -> bool:
+    def _parseRule(self,data:str,rule:Word) -> bool|(-1):
         if(rule.op == ">"):
             return self._parseWord(data,rule)
         if(rule.op == "="):
@@ -299,9 +298,8 @@ class Node:
         self.raw = self.pos.getRange(data)
         return True
 
-    def _parseWord(self,data:str,rule:Word) -> bool:
+    def _parseWord(self,data:str,rule:Word) -> bool|(-1):
         pos = self.iter
-        # TODO change from Tuple to Object
         for wrd in rule.expr:
             if(DEBUG_FLAG):print(f" {wrd} {pos}")
             lower = Node(self.parent,wrd.word,pos.copy())
@@ -321,6 +319,8 @@ class Node:
                 self.child += lower.child
             else:
                 self.child.append(lower)
+            if(FLAG_COPY in wrd.op):
+                self.name = lower.name
         self.pos.setRange(pos)
         return True
 
@@ -328,7 +328,10 @@ class Node:
         for r in self.parent.registered.get(self.name,list()):
             self.iter.update(self.pos)
             self.child.clear()
-            if(self._parseRule(data,r)):
+            o = self._parseRule(data,r)
+            if(o == -1):
+                return False
+            if(o):
                 return True
         return False
 
@@ -351,7 +354,7 @@ class Node:
     def __str__(self):return self.cascade()
 
 class Parser:
-    __slots__ = ("rules","registered")
+    __slots__ = ("rules","store","registered")
     def __init__(self,ruleBook:str):
         lrule = ruleBook.split("\n")
         self.rules = list()

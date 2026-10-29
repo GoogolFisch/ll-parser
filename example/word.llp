@@ -1,19 +1,21 @@
 
 // Definition of words
-RSpace   = [\s\t]*
-//RWord    = \w+
-RWord    = [0-9A-Za-z_]+
-RComment = \/\/[^\n]*
-RAssign  = \=
-RReg     = [^\n]+
+RSpace     = [\s\t]*
+//RWord      = \w+
+RWord      = [0-9A-Za-z_]+
+RComment   = \/\/[^\n]*
+RAssign    = \=
+RReg       = [^\n]+
 
-RUnFold  = \*
-ROption  = \?
-RHide    = \.
-RRaw     = \@
+RUnFold    = \*
+ROption    = \?
+RHide      = \.
+RRaw       = \@
+RCopy      = \#
+//RImportant = \!
 
-RNewLine = \n
-RMorphe  = \>
+RNewLine   = \n
+RMorphe    = \>
 // Note easy definition of
 // all symbols have to be escaped
 // \w Word so [A-Za-z0-9_]
@@ -36,8 +38,10 @@ Expr    > RWord RSpace. RMorphe RSpace. List?
 List    > MorWord RSpace. List*?
 
 MorWord > RWord MorList?
-MorList > RUnFold MorList*?
-MorList > RRaw    MorList*?
-MorList > RHide   MorList*?
-MorList > ROption MorList*?
+MorList > RUnFold    MorList*?
+MorList > RRaw       MorList*?
+MorList > RHide      MorList*?
+MorList > ROption    MorList*?
+MorList > RCopy      MorList*?
+//MorList > RImportant MorList*?
 
