@@ -12,14 +12,23 @@ struct ParserNodeLocation;
 // ==========
 
 
+typedef struct ParserNodeLocation {
+	int32_t row,col;
+	int64_t idx;
+	int32_t endRow,endCol;
+	int64_t endIdx;
+	struct ParserNode *data;
+} ParserNodeLocation;
 typedef struct ParserNode {
 	int32_t references;
-	int32_t _unused_;
+	char isRaw;
+	char _unused0_;
+	int16_t _unused1_;
 
 	// name
 	char *name;
 
-	char *slicePtr;
+	uint8_t *slicePtr;
 	struct ParserNodeLocation location;
 
 	int32_t capacity;
@@ -28,36 +37,26 @@ typedef struct ParserNode {
 
 } ParserNode;
 
-typedef struct ParserNodeLocation {
-	int32_t row,col;
-	int64_t idx;
-	int32_t endRow,endCol;
-	int64_t endIdx;
-	struct ParserNode *data;
-} ParserNodeLocation;
-
-// ======
-#ifndef NULL
-#define NULL ((void*)0)
-#endif
-#ifndef NULL_1
-#define NULL ((void*)-1LL)
-#endif
 // ======
 
+// This isn't here!
+ParserNode *parser_Parser(uint8_t *data,int64_t length);
 
 ParserNodeLocation parser_location_new(void);
 void    parser_location_incr(ParserNodeLocation *loc);
 void    parser_location_incrLine(ParserNodeLocation *loc);
 void    parser_location_setRange(ParserNodeLocation *range,ParserNodeLocation *end);
+void    parser_location_setAfter(ParserNodeLocation *set  ,ParserNodeLocation *end);
 int64_t parser_location_getIndex(ParserNodeLocation *loc);
 ParserNodeLocation parser_location_fromNode(ParserNode *node);
 
-ParserNode *parser_node_new(uint8_t *data,ParserNodeLocation *loc);
-ParserNode *parser_node_fromRange(uint8_t *data,ParserNodeLocation *loc,int64_t next);
+ParserNode *parser_node_new(uint8_t *data,ParserNodeLocation *loc,char *name);
+ParserNode *parser_node_fromRange(uint8_t *data,ParserNodeLocation *loc,int64_t next,char *name);
 void parser_node_free(ParserNode *node);
 void parser_node_appendChild(ParserNode **node,ParserNode *child);
 void parser_node_appendChildrenOf(ParserNode **node,ParserNode *child);
+void parser_node_setRange(ParserNode *node,ParserNodeLocation *loc);
+void parser_node_print(ParserNode *node,int32_t indent);
 
 
 // ======
@@ -89,6 +88,14 @@ void parser_location_setRange(ParserNodeLocation *range,ParserNodeLocation *end)
 	range->endCol = end->col;
 	range->endRow = end->row;
 }
+void    parser_location_setAfter(ParserNodeLocation *set  ,ParserNodeLocation *end){
+	set->idx = end->endIdx;
+	set->col = end->endCol;
+	set->row = end->endRow;
+	set->endIdx = set->idx;
+	set->endCol = set->col;
+	set->endRow = set->row;
+}
 int64_t parser_location_getIndex(ParserNodeLocation *loc){
 	return loc->idx;
 }
@@ -100,13 +107,14 @@ ParserNodeLocation parser_location_fromNode(ParserNode *node){
 	return pnl;
 }
 
-ParserNode *parser_node_new(uint8_t *data,ParserNodeLocation *loc){
+ParserNode *parser_node_new(uint8_t *data,ParserNodeLocation *loc,char *name){
 	const int32_t initCapacity = 4;
 	size_t sz = sizeof(ParserNode);
 	sz += sizeof(ParserNode*) * initCapacity;
 	ParserNode *n = malloc(sz); 
 	n->references = 0;
-	n->name = NULL;
+	n->isRaw = 0;
+	n->name = name;
 	n->slicePtr = data;
 	n->location = *loc;
 	n->capacity = initCapacity;
@@ -114,12 +122,13 @@ ParserNode *parser_node_new(uint8_t *data,ParserNodeLocation *loc){
 
 	return n;
 }
-ParserNode *parser_node_fromRange(uint8_t *data,ParserNodeLocation *loc,int64_t next){
-	ParserNode *n = parser_node_new(data,loc); 
+ParserNode *parser_node_fromRange(uint8_t *data,ParserNodeLocation *loc,int64_t next,char *name){
+	ParserNode *n = parser_node_new(data,loc,name); 
 	n->location.endIdx = next;
 	n->location.endRow = n->location.row;
 	n->location.endCol = n->location.col;
-	for(int32_t i = loc.idx;i <= next;i++){
+	n->isRaw = 1;
+	for(int32_t i = loc->idx;i < next;i++){
 		n->location.endCol++;
 		if(data[i] != '\n')continue;
 		n->location.endRow++;
@@ -138,6 +147,7 @@ void parser_node_free(ParserNode *node){
 	free(node);
 }
 void parser_node_appendChild(ParserNode **node,ParserNode *child){
+	if(!child)return;
 	ParserNode *capNode = *node;
 	if(capNode->length >= capNode->capacity){
 		capNode->capacity *= 2;
@@ -156,7 +166,29 @@ void parser_node_appendChildrenOf(ParserNode **node,ParserNode *child){
 		child->children[idx] = NULL;
 	}
 	parser_node_free(child);
-	parser_node_free(child);
+}
+void parser_node_setRange(ParserNode *node,ParserNodeLocation *loc){
+	node->location.endIdx = loc->endIdx;
+	node->location.endRow = loc->endRow;
+	node->location.endCol = loc->endCol;
+}
+void parser_node_print(ParserNode *node,int32_t indent){
+	int32_t c = 0;
+	for(c = 0;c < indent;c++)printf(" ");
+	ParserNodeLocation *loc = &(node->location);
+	printf("<(%i:%i %li-%i:%i %li) %s ",
+			loc->   row,loc->   col,loc->   idx,
+			loc->endRow,loc->endCol,loc->endIdx,
+			node->name
+			);
+	if(node->isRaw){
+		printf("%.*s",(int32_t)(loc->endIdx - loc->idx),node->slicePtr + loc->idx);
+	}
+	for(c = 0;c < node->length;c++){
+		puts("");
+		parser_node_print(node->children[c],indent + 1);
+	}
+	printf(">");
 }
 
 

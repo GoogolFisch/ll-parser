@@ -29,6 +29,14 @@ def makeHeadProg(msg:str) -> str:
     return f"/* {msg} */" + """
 #include"parserNode.h"
 """
+def makeHeadFunction(p:llParser.Parser,name:str) -> (str,str,str):
+    funName = name
+    progBod = f"ParserNode *{funName}(uint8_t *data,int64_t length)"
+    progSig = progBod + ";\n"
+    progBod += "{\n" #}
+    progBod += f" return {p.store['_']}(data,parser_location_new(),length);\n"
+    progBod += "\x7d\n"
+    return funName,progSig,progBod
 def makeLetterParser(ruLet:llParser.Letter) -> (str,str):
     name = randName()
     tester = f"  int {name} = 0;\n"
@@ -66,7 +74,7 @@ def makeWordParser(p:llParser.Parser,ru:llParser.Word) -> (str,str,str):
         elif(let.repeat == llParser.REPEAT_WITH):
             progBod += " while(1){\n"#}
             progBod += fun
-            progBod += f" if(!{nam} || offset >= length){{offset--;break;}}\n"
+            progBod += f" if(!{nam} || offset >= length){{break;}}\n"
             progBod += " offset++;\n"
             progBod += " \x7d\n"
         elif(let.repeat == llParser.REPEAT_WO):
@@ -74,15 +82,15 @@ def makeWordParser(p:llParser.Parser,ru:llParser.Word) -> (str,str,str):
             progBod += f" int {didRepeat} = 0;\n"
             progBod += " while(1){\n"#}
             progBod += fun
-            progBod += f" if(!{nam} || offset >= length){{offset--;break;}}\n"
+            progBod += f" if(!{nam} || offset >= length){{break;}}\n"
             progBod += " offset++;\n"
-            progBod += " didRepeat=1;\n"
+            progBod += f" {didRepeat}=1;\n"
             progBod += " \x7d\n"
             progBod += f" if(!{didRepeat}){{return NULL;}}\n"
         else:
             print(nam,fun,let)
 
-    progBod += " ParserNode *node = parser_node_fromRange(data,loc,offset);\n"
+    progBod += f" ParserNode *node = parser_node_fromRange(data,&loc,offset,\"{ru.name}\");\n"
     progBod += " return node;\n"
     progBod += "\x7d\n"
     return funName,progSig,progBod
@@ -92,21 +100,33 @@ def makeListParser(p:llParser.Parser,ru:llParser.Word) -> (str,str,str):
     progBod = f"ParserNode *{funName}(uint8_t *data,ParserNodeLocation loc,int64_t length)"
     progSig = progBod + ";\n"
     progBod += "{\n"#}
+    progBod += f" ParserNode *node = parser_node_new(data,&loc,\"{ru.name}\");\n"
     for subWord in ru.expr:
         varName = randName()
         callingName = p.store.get(subWord.word,None)
         if(callingName is None):
             progBod += "return NULL;\n"
             break
-        progBod += f" ParserNode *{varName} = {callingName}(data,loc,length);"
+        progBod += f" ParserNode *{varName} = {callingName}(data,loc,length);\n"
+        if(llParser.FLAG_UNFOLD in subWord.op):
+            progBod += f" if({varName}){{parser_node_appendChildrenOf(&node,{varName});}}\n"
+        elif(llParser.FLAG_HIDE not in subWord.op):
+            progBod += f" if({varName}){{parser_node_appendChild(&node,{varName});}}\n"
+        if(llParser.FLAG_OPTION not in subWord.op):
+            progBod += f" if(!{varName}){{parser_node_free(node);return NULL;}}\n"
+        if(llParser.FLAG_RAW in subWord.op):
+            progBod += f" if({varName}){{node->isRaw = 1;}}\n"
+        progBod += f" if({varName}){{parser_location_setAfter(&loc,&({varName}->location));}}\n"
+        if(llParser.FLAG_HIDE in subWord.op):
+            progBod += f" parser_node_free({varName});\n"
         # TODO
-
-    progBod += " return loc;\n"
+    progBod += " parser_node_setRange(node,&loc);\n"
+    progBod += " return node;\n"
     progBod += "\x7d\n"
     return funName,progSig,progBod
 
 PREFIX = "parser__"
-def runMakeParser(p:llParser.Parser):
+def runMakeParser(p:llParser.Parser) -> str:
     definitions  = list()
     declarations = list()
     for idx,ru in enumerate(p.rules):
@@ -120,13 +140,22 @@ def runMakeParser(p:llParser.Parser):
     for ru in p.rules:
         if(ru.op == "="):
             fuName,defi,decl = makeWordParser(p,ru)
-            #definitions.append(defi)
+            definitions.append(defi)
             declarations.append(decl)
         elif(ru.op == ">"):
             fuName,defi,decl = makeListParser(p,ru)
+            definitions.append(defi)
             declarations.append(decl)
+    #
+    if True:
+        headFunc,defi,decl = makeHeadFunction(p,PREFIX[:-1]+"Parser")
+        definitions.insert(0,defi)
+        declarations.append(decl)
     fileData = makeHeadProg("This was generated") + "\n"
     fileData += "".join(definitions) + "\n"
     fileData += "".join(declarations)
     print(fileData)
+    print(headFunc)
+    print("gcc [FileName] -Wall -Wextra -g -fPIC -shared -o [output].so")
+    return fileData
 
