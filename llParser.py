@@ -355,7 +355,7 @@ class Node:
 
 class Parser:
     __slots__ = ("rules","store","registered")
-    def __init__(self,ruleBook:str):
+    def __init__(self,ruleBook:str,initial:str="_"):
         lrule = ruleBook.split("\n")
         self.rules = list()
         self.registered = dict()
@@ -374,8 +374,8 @@ class Parser:
             r.append(x)
 
 
-    def parse(self,data:str):
-        n = Node(self)
+    def parse(self,data:str,initial:str="_"):
+        n = Node(self,initial)
         worked = n.parse(data)
         if(not worked):
             return None

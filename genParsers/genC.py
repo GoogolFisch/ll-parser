@@ -1,4 +1,5 @@
 llParser = None
+PREFIX = "parser__"
 
 randCounter = 0
 def randName(prefix:str="_") -> str:
@@ -125,7 +126,6 @@ def makeListParser(p:llParser.Parser,ru:llParser.Word) -> (str,str,str):
     progBod += "\x7d\n"
     return funName,progSig,progBod
 
-PREFIX = "parser__"
 def runMakeParser(p:llParser.Parser) -> str:
     definitions  = list()
     declarations = list()

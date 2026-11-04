@@ -18,9 +18,10 @@ def main():
     testFile = sys.argv[2]
     with open(testFile,"r")as fptr:
         data = fptr.read()
-    print(p.parse(data))
+    initial = sys.argv[3] if len(sys.argv) > 3 else "_"
+    print(p.parse(data,initial))
 
 
 
 if(__name__ == "__main__" and len(sys.argv)  > 1):main()
-elif(__name__ == "__main__"):print("get [rule file]")
+elif(__name__ == "__main__"):print("get [rule file] [test file]? [test node]?")
