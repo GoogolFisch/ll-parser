@@ -17,7 +17,7 @@ def makeInitFunction(p:llParser.Parser,ruName:str,prefix:str="llPar_") -> (str,s
     progBod = f"  def {funName}(data:str,loc:Location):\n"
     for x in p.registered.get(ruName,list()):
         varName = randName()
-        progBod += f"    {varName} = {x.store}(data,loc,length);\n"
+        progBod += f"    {varName} = Parser.{x.store}(data,loc);\n"
         progBod += f"    if({varName}):return {varName}\n"
     progBod += "    return None\n"
     return funName,progBod
@@ -46,6 +46,9 @@ class Location:
         self.idx = other.endIdx
         self.row = other.endRow
         self.col = other.endCol
+        self.endIdx = self.idx
+        self.endRow = self.row
+        self.endCol = self.col
     def copy(self):
         l = Location()
         l.row = self.row
@@ -55,9 +58,11 @@ class Location:
         l.endCol = self.endCol
         l.endIdx = self.endIdx
         return l
+    def __str__(self):
+        return f"({self.row}:{self.col},{self.idx} - {self.endRow}:{self.endCol},{self.endIdx})"
 class Node:
     __slots__ = ("__dict__","isRaw","data","name","loc","children")
-    def __init__(self,data:str,name:str,loc:Location):
+    def __init__(self,data:str,loc:Location,name:str):
         self.data = data
         self.name = name
         self.loc  = loc
@@ -65,13 +70,13 @@ class Node:
         self.isRaw = False
     @staticmethod
     def fromRange(data:str,name:str,loc:Location,next:int):
-        n = Node(data,name,loc.copy())
+        n = Node(data,loc.copy(),name)
         n.loc.endIdx = next
         n.loc.endRow = loc.row
         n.loc.endCol = loc.col
         for i in range(n.loc.idx,n.loc.endIdx):
             n.loc.endCol += 1
-            if(data[i] == "\n"):
+            if(data[i] == "\\n"):
                 n.loc.endCol = 1
                 n.loc.endRow += 1
         n.isRaw = True
@@ -89,8 +94,9 @@ class Node:
         if(self.isRaw):
             s += f"{self.data[self.loc.idx:self.loc.endIdx]}"
         for ch in self.children:
-            s += "\\n" + ch.print(indet + 1)
+            s += "\\n" + ch.print(indent + 1)
         s += ">"
+        return s
 
 class Parser:
 """
@@ -110,8 +116,8 @@ def makeLetterParser(ruLet:llParser.Letter,indent:int=3) -> (str,str):
         tester += ind
         if(isFirst):isFirst = False
         else       :tester += "el"
-        if(cnt == 1):tester += f"if(ord(data[offset]) == {lw}):"
-        else        :tester += f"if(ord(data[offset]) >= {lw} && ord(data[offset]) < {lw + cnt}):"
+        if(cnt == 1):tester += f"if(len(data) > offset and ord(data[offset]) == {lw}):"
+        else        :tester += f"if(len(data) > offset and ord(data[offset]) >= {lw} and ord(data[offset]) < {lw + cnt}):"
         tester += f"{name} = True\n"
     if(ruLet.invert):
         tester += f"{ind}{name} = not {name}\n"
@@ -146,11 +152,11 @@ def makeWordParser(p:llParser.Parser,ru:llParser.Word) -> (str,str):
             progBod += f"      if(not {nam} or offset >= len(data)):break\n"
             progBod +=  "      offset += 1\n"
             progBod += f"      {didRepeat}=True\n"
-            progBod += f"    if(not {didRepeat})return None\n"
+            progBod += f"    if(not {didRepeat}):return None\n"
         else:
             print(nam,fun,let)
 
-    progBod += "    return node\n"
+    progBod += f"    return Node.fromRange(data,\"{ru.name}\",loc,offset)\n"
     return funName,progBod
 
 def makeListParser(p:llParser.Parser,ru:llParser.Word) -> (str,str,str):
@@ -163,16 +169,16 @@ def makeListParser(p:llParser.Parser,ru:llParser.Word) -> (str,str,str):
         if(callingName is None):
             progBod += "    return None\n"
             break
-        progBod += f"    {varName} = {callingName}(data,loc)\n"
+        progBod += f"    {varName} = Parser.{callingName}(data,loc)\n"
         if(llParser.FLAG_UNFOLD in subWord.op):
-            progBod += f"    if({varName}):node.appendChild({varName})\n"
+            progBod += f"    if({varName}):node.addChildrenOf({varName})\n"
         elif(llParser.FLAG_HIDE not in subWord.op):
-            progBod += f"    if({varName}):node.appendChildrenOf({varName})\n"
+            progBod += f"    if({varName}):node.addChild({varName})\n"
         if(llParser.FLAG_OPTION not in subWord.op):
             progBod += f"    if(not {varName}):return None\n"
         if(llParser.FLAG_RAW in subWord.op):
             progBod += f"    if({varName}):node.isRaw = True\n"
-        progBod += f"    if({varName}):loc = node.getAfter()\n"
+        progBod += f"    if({varName}):loc.update({varName}.loc)\n"
         # TODO
     progBod += "    node.setRange(loc)\n"
     progBod += "    return node\n"

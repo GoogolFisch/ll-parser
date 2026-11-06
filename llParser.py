@@ -355,7 +355,7 @@ class Node:
 
 class Parser:
     __slots__ = ("rules","store","registered")
-    def __init__(self,ruleBook:str,initial:str="_"):
+    def __init__(self,ruleBook:str):
         lrule = ruleBook.split("\n")
         self.rules = list()
         self.registered = dict()
